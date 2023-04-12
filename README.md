@@ -111,3 +111,32 @@ Delete:
 ```
 vault policy delete
 ```
+
+# Configuring Vault OIDC
+```
+vault auth enable oidc
+
+vault write auth/oidc/config \
+    oidc_discovery_url="https://auth.local/realms/organization" \
+    oidc_client_id="vault" \
+    oidc_client_secret="$(tail tokenb.txt)" \
+    default_role="kc-default"
+
+vault write auth/oidc/role/kc-default \
+    user_claim="email" \
+    allowed_redirect_uris="https://secrets.local/ui/vault/auth/oidc/oidc/callback" \
+    policies=default \
+    groups_claim="groups" \
+    ttl=1h \
+    token_max_ttl=1h
+
+vault auth list -format=json | jq -r '."oidc/".accessor' > vault-oidc-accessor.txt
+
+vault write identity/group name="kc-group" type="external" \
+  policies="oidc-group" \
+  metadata=responsibility="My Group"
+
+vault write identity/group-alias name="kc-group" \
+  mount_accessor=$(cat vault-oidc-accessor.txt) \
+  canonical_id="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
